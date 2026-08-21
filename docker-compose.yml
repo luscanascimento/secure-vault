@@ -1,0 +1,110 @@
+# ============================================================================
+# Secure Vault — full stack (PostgreSQL + NestJS API + Angular/nginx web)
+# `docker compose up --build` brings the whole app up end-to-end.
+# Values are read from the root `.env` (copy from `.env.example`).
+# ============================================================================
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: sv-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - sv_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sv-net
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: sv-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 3000
+      WEB_ORIGIN: ${WEB_ORIGIN}
+      # Inside the compose network the DB host is the service name `postgres`.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL}
+      NOTE_ENCRYPTION_KEY: ${NOTE_ENCRYPTION_KEY}
+      COOKIE_SECURE: ${COOKIE_SECURE}
+      REFRESH_COOKIE_NAME: ${REFRESH_COOKIE_NAME}
+      CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME}
+      THROTTLE_TTL_SECONDS: ${THROTTLE_TTL_SECONDS}
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT}
+      # Password-strength scoring. The API calls this at registration with a
+      # short timeout and fails open, so leaving the `guardsvc` profile off
+      # simply means registrations are checked by the DTO rules alone.
+      GUARDSVC_URL: ${GUARDSVC_URL:-}
+      GUARDSVC_TIMEOUT_MS: ${GUARDSVC_TIMEOUT_MS:-400}
+    expose:
+      - '3000'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sv-net
+
+  # Optional dependency, started only with `docker compose --profile guardsvc up`.
+  # It is a separate repository (github.com/…/guardsvc) expected to be checked
+  # out next to this one; without it the API still registers users, it just does
+  # not get the extra strength feedback. Set GUARDSVC_URL=http://guardsvc:8080
+  # in .env to switch the check on.
+  guardsvc:
+    profiles: ['guardsvc']
+    build:
+      context: ../guardsvc
+    container_name: sv-guardsvc
+    restart: unless-stopped
+    environment:
+      GUARDSVC_ADDR: ':8080'
+      GUARDSVC_MIN_SCORE: '2'
+    expose:
+      - '8080'
+    networks:
+      - sv-net
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: sv-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '4200:8080'
+    networks:
+      - sv-net
+
+volumes:
+  sv_pgdata:
+    name: sv_pgdata
+
+networks:
+  sv-net:
+    name: sv-net
