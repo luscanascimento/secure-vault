@@ -1,0 +1,84 @@
+<div class="editor-backdrop" (click)="onCancel()"></div>
+
+<aside class="editor-panel" role="dialog" aria-modal="true" aria-labelledby="editor-title">
+  <header class="editor-head">
+    <div>
+      <span class="badge badge-accent">
+        <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+          <rect x="4" y="10" width="16" height="10" rx="2" fill="currentColor" />
+          <path d="M8 10V7a4 4 0 018 0v3" fill="none" stroke="currentColor" stroke-width="1.6" />
+        </svg>
+        encrypted on save
+      </span>
+      <h2 id="editor-title">{{ isEditing() ? 'Edit note' : 'New note' }}</h2>
+    </div>
+    <button class="icon-x" type="button" (click)="onCancel()" aria-label="Close editor">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      </svg>
+    </button>
+  </header>
+
+  <form class="editor-form" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+    <div class="field">
+      <label for="note-title">Title</label>
+      <input
+        id="note-title"
+        class="input"
+        type="text"
+        formControlName="title"
+        placeholder="Untitled note"
+        [class.invalid]="form.controls.title.touched && form.controls.title.invalid"
+      />
+      @if (form.controls.title.touched && form.controls.title.invalid) {
+        <p class="error-text">A title is required (max 200 characters).</p>
+      }
+    </div>
+
+    <div class="field">
+      <label for="note-content">Content</label>
+      <textarea
+        id="note-content"
+        class="input"
+        rows="10"
+        formControlName="content"
+        placeholder="Type freely — the server encrypts this with AES-256-GCM before it reaches the database."
+      ></textarea>
+    </div>
+
+    <div class="field">
+      <label for="note-tags">Tags</label>
+      <div class="tag-input">
+        @for (tag of tags(); track tag) {
+          <span class="tag-chip removable">
+            {{ tag }}
+            <button type="button" (click)="removeTag(tag)" [attr.aria-label]="'Remove tag ' + tag">×</button>
+          </span>
+        }
+        <input
+          id="note-tags"
+          class="tag-entry"
+          type="text"
+          [value]="tagDraft()"
+          (input)="tagDraft.set($any($event.target).value)"
+          (keydown)="onTagKeydown($event)"
+          (blur)="commitTag()"
+          placeholder="Add tag, press Enter"
+        />
+      </div>
+      <p class="hint mono">up to 20 tags · lowercased</p>
+    </div>
+
+    <div class="editor-actions">
+      <button class="btn btn-ghost" type="button" (click)="onCancel()">Cancel</button>
+      <button class="btn btn-primary" type="submit" [disabled]="saving()">
+        @if (saving()) {
+          <span class="boot-ring-sm spin" aria-hidden="true"></span>
+          Encrypting…
+        } @else {
+          {{ isEditing() ? 'Save changes' : 'Create note' }}
+        }
+      </button>
+    </div>
+  </form>
+</aside>

@@ -1,0 +1,200 @@
+/* Shared styling for the login & register pages — an editorial split panel. */
+
+.auth-wrap {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: center;
+  min-height: calc(100vh - 220px);
+  animation: rise var(--dur) var(--ease) both;
+}
+
+.auth-pitch {
+  max-width: 30rem;
+}
+.auth-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1.2rem;
+}
+.auth-eyebrow::before {
+  content: '';
+  width: 26px;
+  height: 1px;
+  background: var(--accent);
+}
+.auth-title {
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  line-height: 1.02;
+}
+.auth-title em {
+  font-style: italic;
+  color: var(--accent);
+}
+.auth-sub {
+  margin-top: 1.2rem;
+  color: var(--text-dim);
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+.auth-guarantees {
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.auth-guarantees li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+.auth-guarantees svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.auth-card {
+  padding: clamp(1.6rem, 3vw, 2.4rem);
+}
+.auth-card h2 {
+  font-size: 1.7rem;
+}
+.auth-card .lead {
+  color: var(--text-dim);
+  margin: 0.4rem 0 1.6rem;
+  font-size: 0.94rem;
+}
+
+form.auth-form {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.pw-wrap {
+  position: relative;
+}
+.pw-toggle {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 8px;
+  display: inline-flex;
+}
+.pw-toggle:hover {
+  color: var(--accent);
+}
+
+.strength {
+  display: flex;
+  gap: 5px;
+  margin-top: 0.2rem;
+}
+.strength span {
+  height: 4px;
+  flex: 1;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 0.3s var(--ease);
+}
+.strength span.on-1 {
+  background: var(--danger);
+}
+.strength span.on-2 {
+  background: #e0a63a;
+}
+.strength span.on-3 {
+  background: var(--accent);
+}
+
+.form-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius);
+  background: var(--danger-bg);
+  border: 1px solid color-mix(in oklab, var(--danger) 40%, transparent);
+  color: var(--danger);
+  font-size: 0.88rem;
+}
+
+/* Password-strength suggestions returned by the API alongside a 400. */
+.form-hints {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.82rem;
+  opacity: 0.85;
+}
+
+.form-hints li + li {
+  margin-top: 0.25rem;
+}
+
+.auth-alt {
+  margin-top: 1.4rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+.auth-alt a {
+  font-weight: 600;
+}
+
+.submit-row {
+  margin-top: 0.3rem;
+}
+.submit-row .btn {
+  width: 100%;
+  padding: 0.85rem;
+  font-size: 1rem;
+}
+
+.boot-ring-sm {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in oklab, #052014 35%, transparent);
+  border-top-color: #052014;
+  display: inline-block;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .auth-wrap {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    gap: 2rem;
+  }
+  .auth-pitch {
+    order: 2;
+    max-width: none;
+  }
+  .auth-guarantees {
+    display: none;
+  }
+}
