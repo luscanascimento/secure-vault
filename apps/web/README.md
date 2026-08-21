@@ -39,7 +39,24 @@ src/app/
 | --- | --- |
 | `npm run build` | Production build (`ng build`) |
 | `npm start` | Dev server (`ng serve`) |
-| `npm test` | Unit tests |
+| `npm run lint` | Type-check (`tsc -p tsconfig.app.json --noEmit`) |
+
+There is **no** `npm test` here yet: no runner is configured and no specs exist.
+The automated suites live in `apps/api` (`npm test` from the repo root). Adding
+web tests means wiring a runner (Vitest or Karma) into `angular.json` first.
+
+## Content-Security-Policy
+
+`nginx.conf` — not the API — sets the CSP for the HTML this app is served from.
+`optimization.styles.inlineCritical` is turned **off** in `angular.json` for that
+reason: with it on, the build emits `<link ... onload="this.media='all'">`, an
+inline event handler that would force `script-src 'unsafe-inline'` and hollow out
+the policy. The trade is a render-blocking stylesheet request (~5 kB).
+
+`style-src` still carries `'unsafe-inline'`, because Angular injects component
+styles at runtime through `document.createElement('style')`. Removing it requires
+a per-response nonce via `ngCspNonce`, which needs a dynamic server; nginx serving
+a static `index.html` cannot generate one.
 
 ## Configuration
 

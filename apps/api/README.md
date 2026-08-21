@@ -17,7 +17,9 @@ architecture (**controller → service → repository → Prisma**), fully typed
 
 ```
 src/
-  main.ts                 # bootstrap: helmet, CSP, CORS, cookies, global pipe
+  main.ts                 # bootstrap: helmet, CORS, cookies, global pipe.
+                          # Its CSP only ever covers JSON responses — the CSP
+                          # that matters is in apps/web/nginx.conf.
   app.module.ts           # global guards (throttler, JWT), global filter
   config/                 # typed config + Joi env validation
   prisma/                 # PrismaService (driver adapter) + module
@@ -44,6 +46,8 @@ prisma.config.ts          # Prisma 7 config (datasource URL, seed)
 | `npm run prisma:deploy` | Apply migrations (production) |
 | `npm run prisma:seed` | Seed a demo user + encrypted notes |
 | `npm run lint` | ESLint (`no-explicit-any` enforced) |
+| `npm test` | Jest — the security suites (`*.spec.ts`, no DB required) |
+| `npm run test:cov` | Same, with a coverage report |
 
 ## API surface
 
