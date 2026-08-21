@@ -1,0 +1,76 @@
+// Secure Vault — Prisma schema
+// Docs: https://pris.ly/d/prisma-schema
+//
+// Prisma 7 uses the Rust-free `prisma-client` generator with a required output
+// path. `moduleFormat = "cjs"` keeps the generated client compatible with
+// NestJS's CommonJS build output.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// An application user. Passwords are hashed with Argon2id (+ app pepper) and
+/// never stored in plaintext.
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  /// Bumped on logout / credential change to invalidate all refresh tokens.
+  tokenVersion Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  notes         Note[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+/// A personal note. `content` is stored encrypted at rest with AES-256-GCM under
+/// a server-held key: we persist the IV, GCM auth tag and ciphertext, never the
+/// body in plaintext. `title` and `tags` ARE plaintext — the app queries and
+/// filters on them. See "Trust boundary" in the README.
+model Note {
+  id         String   @id @default(uuid())
+  /// Plaintext, by design: used for listing and filtering.
+  title      String
+  /// Base64 IV used for AES-256-GCM (unique per record).
+  contentIv  String
+  /// Base64 GCM authentication tag (integrity + authenticity).
+  contentTag String
+  /// Base64 ciphertext of the note body.
+  content    String
+  tags       String[] @default([])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notes")
+}
+
+/// A rotating refresh token. Only a hash of the token is stored, so a DB leak
+/// cannot be replayed. Rotation revokes the previous token on each refresh.
+model RefreshToken {
+  id        String    @id @default(uuid())
+  /// SHA-256 hash of the opaque refresh token (never the raw token).
+  tokenHash String    @unique
+  expiresAt DateTime
+  /// Set when the token is rotated or explicitly revoked (logout).
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
