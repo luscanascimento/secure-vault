@@ -1,0 +1,81 @@
+{
+  "name": "@secure-vault/api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Secure Vault API \u2014 NestJS + Prisma + PostgreSQL.",
+  "license": "MIT",
+  "scripts": {
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main.js",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "jest",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "test:cov": "jest --coverage"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/generated/"
+    ]
+  },
+  "dependencies": {
+    "@nestjs/common": "11.1.6",
+    "@nestjs/config": "4.0.2",
+    "@nestjs/core": "11.1.6",
+    "@nestjs/jwt": "11.0.0",
+    "@nestjs/mapped-types": "2.1.0",
+    "@nestjs/platform-express": "11.1.6",
+    "@nestjs/throttler": "6.4.0",
+    "@prisma/adapter-pg": "7.8.0",
+    "@prisma/client": "7.8.0",
+    "argon2": "0.44.0",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.14.2",
+    "cookie-parser": "1.4.7",
+    "dotenv": "17.2.3",
+    "helmet": "8.1.0",
+    "joi": "18.0.1",
+    "nest-winston": "1.10.2",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "winston": "3.18.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.38.0",
+    "@nestjs/cli": "11.0.7",
+    "@nestjs/schematics": "11.0.9",
+    "@nestjs/testing": "11.1.6",
+    "@types/cookie-parser": "1.4.9",
+    "@types/express": "5.0.5",
+    "@types/jest": "30.0.0",
+    "@types/node": "22.19.0",
+    "eslint": "9.38.0",
+    "typescript-eslint": "8.46.0",
+    "jest": "30.2.0",
+    "prisma": "7.8.0",
+    "source-map-support": "0.5.21",
+    "ts-jest": "29.4.6",
+    "ts-loader": "9.5.4",
+    "ts-node": "10.9.2",
+    "tsconfig-paths": "4.2.0",
+    "typescript": "5.9.2"
+  }
+}
