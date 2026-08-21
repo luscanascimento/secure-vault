@@ -1,0 +1,31 @@
+{
+  "name": "secure-vault",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Secure Vault — a personal notes vault with note bodies encrypted at rest (AES-256-GCM). Security-focused full-stack showcase (NestJS + Angular + Prisma + PostgreSQL).",
+  "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "dev": "turbo run dev",
+    "prisma:generate": "npm run prisma:generate --workspace=@secure-vault/api",
+    "prisma:migrate": "npm run prisma:migrate --workspace=@secure-vault/api",
+    "prisma:seed": "npm run prisma:seed --workspace=@secure-vault/api",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "devDependencies": {
+    "turbo": "2.10.5"
+  },
+  "engines": {
+    "node": ">=22.22.3",
+    "npm": ">=10.0.0"
+  },
+  "packageManager": "npm@10.9.3"
+}
