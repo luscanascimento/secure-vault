@@ -13,7 +13,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import type { CreateNotePayload, Note } from '../../core/models';
+import type { CreateNoteRequest, Note } from '@secure-vault/shared-types';
 
 /**
  * Slide-over editor for creating or editing a note. Emits a typed payload; the
@@ -34,7 +34,7 @@ export class NoteEditorComponent {
   readonly note = input<Note | null>(null);
   readonly saving = input<boolean>(false);
 
-  readonly save = output<CreateNotePayload>();
+  readonly save = output<CreateNoteRequest>();
   readonly cancel = output<void>();
 
   protected readonly tags = signal<string[]>([]);

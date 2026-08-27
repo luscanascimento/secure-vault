@@ -10,7 +10,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { debounceTime, startWith } from 'rxjs';
 import { NotesService } from '../../core/notes.service';
 import { extractErrorMessage } from '../../core/http-error';
-import type { CreateNotePayload, Note } from '../../core/models';
+import type { CreateNoteRequest, Note } from '@secure-vault/shared-types';
 import { NoteEditorComponent } from './note-editor.component';
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -98,7 +98,7 @@ export class VaultComponent {
     this.editing.set(null);
   }
 
-  protected handleSave(payload: CreateNotePayload): void {
+  protected handleSave(payload: CreateNoteRequest): void {
     this.saving.set(true);
     const current = this.editing();
     const request$ = current

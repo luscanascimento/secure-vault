@@ -34,7 +34,7 @@ export class PasswordStrengthService {
   // Minimal circuit breaker: after `failureThreshold` consecutive failures,
   // stop calling for `openMs` so a dead dependency costs one timeout per
   // window instead of one per registration.
-  // ponytail: a counter and a timestamp, single process. If the API is ever
+  // State is a counter and a timestamp, in-process only. If the API is ever
   // scaled out and the breaker state needs to be shared, that is what a real
   // breaker library (or a Redis-backed one) is for.
   private static readonly failureThreshold = 3;

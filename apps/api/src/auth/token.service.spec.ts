@@ -17,7 +17,6 @@ type PrismaMock = {
   refreshToken: {
     create: jest.Mock;
     findUnique: jest.Mock;
-    update: jest.Mock;
     updateMany: jest.Mock;
   };
   user: { findUnique: jest.Mock; update: jest.Mock };
@@ -29,8 +28,7 @@ function buildPrismaMock(): PrismaMock {
     refreshToken: {
       create: jest.fn().mockResolvedValue({}),
       findUnique: jest.fn(),
-      update: jest.fn().mockResolvedValue({}),
-      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     user: {
       findUnique: jest.fn().mockResolvedValue(USER),
@@ -97,14 +95,68 @@ describe('TokenService', () => {
 
       const rotated = await service.rotate(refreshToken);
 
-      expect(prisma.refreshToken.update).toHaveBeenCalledWith({
-        where: { id: 'rt-1' },
+      // Conditional single statement, not read-then-write: the `revokedAt: null`
+      // guard is what makes concurrent rotations mutually exclusive.
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { id: 'rt-1', revokedAt: null },
         data: { revokedAt: expect.any(Date) as Date },
       });
       expect(prisma.refreshToken.create).toHaveBeenCalledTimes(1);
       expect(rotated.refreshToken).not.toBe(refreshToken);
       expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('rotate — concurrent double rotation', () => {
+    // Both callers read the row while revokedAt is still null (the DB row the
+    // mock returns never changes), so the read-side reuse check cannot catch
+    // this. Only the conditional write can: the second UPDATE matches 0 rows.
+    function raceTheRevoke(): void {
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: USER.id,
+        expiresAt: inAWeek(),
+        revokedAt: null,
+      });
+      let firstWrite = true;
+      prisma.refreshToken.updateMany.mockImplementation(() => {
+        if (firstWrite) {
+          firstWrite = false;
+          return Promise.resolve({ count: 1 });
+        }
+        return Promise.resolve({ count: 0 });
+      });
+    }
+
+    it('lets exactly one of two concurrent refreshes win', async () => {
+      const { refreshToken } = await service.issueTokens(USER);
+      raceTheRevoke();
+
+      const results = await Promise.allSettled([
+        service.rotate(refreshToken),
+        service.rotate(refreshToken),
+      ]);
+
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const rejected = results.find((r) => r.status === 'rejected');
+      expect(rejected?.reason).toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('treats the losing racer as reuse and destroys the family', async () => {
+      const { refreshToken } = await service.issueTokens(USER);
+      raceTheRevoke();
+
+      await Promise.allSettled([
+        service.rotate(refreshToken),
+        service.rotate(refreshToken),
+      ]);
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: USER.id },
+        data: { tokenVersion: { increment: 1 } },
+      });
     });
   });
 
@@ -222,7 +274,7 @@ describe('TokenService', () => {
       await expect(service.rotate(refreshToken)).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(prisma.refreshToken.update).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
     });
 
     it('rejects when the user no longer exists', async () => {

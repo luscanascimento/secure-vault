@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { AuthResponse, AuthUser } from './models';
+import type { AuthResponse, AuthUser } from '@secure-vault/shared-types';
 
 /**
  * Authentication state, backed by Angular signals.
@@ -61,10 +61,6 @@ export class AuthService {
     return this.http
       .get<AuthUser>(`${this.base}/auth/me`)
       .pipe(tap((user) => this._user.set(user)));
-  }
-
-  setAccessToken(token: string): void {
-    this._accessToken.set(token);
   }
 
   clearSession(): void {

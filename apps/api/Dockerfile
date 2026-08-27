@@ -7,7 +7,7 @@ WORKDIR /repo
 COPY package.json package-lock.json* turbo.json ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/shared-types/package.json ./packages/shared-types/
-RUN npm install
+RUN npm ci
 
 # 2. Build: generate the Prisma client and compile TypeScript.
 FROM node:22-alpine AS build

@@ -113,11 +113,19 @@ export class TokenService {
       throw new UnauthorizedException('Session has been revoked.');
     }
 
-    // Rotate: revoke the presented token before issuing a new pair.
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
+    // Rotate: revoke the presented token before issuing a new pair. The
+    // `revokedAt: null` guard makes this a single conditional statement, so two
+    // concurrent refreshes of the same token cannot both win — exactly one gets
+    // count === 1. The loser is indistinguishable from a replay, so it falls
+    // into the same reuse handling as the check above.
+    const { count } = await this.prisma.refreshToken.updateMany({
+      where: { id: stored.id, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    if (count === 0) {
+      await this.revokeAllForUser(stored.userId);
+      throw new UnauthorizedException('Refresh token is no longer valid.');
+    }
 
     return this.issueTokens(user);
   }

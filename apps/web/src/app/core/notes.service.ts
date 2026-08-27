@@ -1,8 +1,12 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { CreateNotePayload, Note, UpdateNotePayload } from './models';
+import type {
+  CreateNoteRequest,
+  Note,
+  UpdateNoteRequest,
+} from '@secure-vault/shared-types';
 
 /**
  * Notes state + API access. Holds the loaded notes in a signal so components
@@ -34,26 +38,13 @@ export class NotesService {
       .pipe(tap((notes) => this._notes.set(notes)));
   }
 
-  search(term: string, tag: string | null): Observable<Note[]> {
-    let params = new HttpParams();
-    if (term) {
-      params = params.set('search', term);
-    }
-    if (tag) {
-      params = params.set('tag', tag);
-    }
-    return this.http
-      .get<Note[]>(this.base, { params })
-      .pipe(tap((notes) => this._notes.set(notes)));
-  }
-
-  create(payload: CreateNotePayload): Observable<Note> {
+  create(payload: CreateNoteRequest): Observable<Note> {
     return this.http.post<Note>(this.base, payload).pipe(
       tap((created) => this._notes.update((list) => [created, ...list])),
     );
   }
 
-  update(id: string, payload: UpdateNotePayload): Observable<Note> {
+  update(id: string, payload: UpdateNoteRequest): Observable<Note> {
     return this.http.patch<Note>(`${this.base}/${id}`, payload).pipe(
       tap((updated) =>
         this._notes.update((list) =>
