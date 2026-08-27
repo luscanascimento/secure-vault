@@ -11,6 +11,26 @@ export interface StrengthVerdict {
 }
 
 /**
+ * Runtime shape check for the parsed body. Without it a 200 carrying anything
+ * else (a proxy's error page, a contract drift) would produce
+ * `acceptable === undefined`, which is falsy — turning "fail open" into a
+ * blocked registration.
+ */
+function isStrengthVerdict(value: unknown): value is StrengthVerdict {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.score === 'number' &&
+    typeof v.acceptable === 'boolean' &&
+    (v.warning === undefined || typeof v.warning === 'string') &&
+    Array.isArray(v.suggestions) &&
+    v.suggestions.every((s) => typeof s === 'string')
+  );
+}
+
+/**
  * Client for guardsvc, the external password-strength scorer.
  *
  * This is advisory, never load-bearing. The rules that must always hold live in
@@ -18,9 +38,10 @@ export interface StrengthVerdict {
  * only adds the checks a regex cannot do — breach wordlists, keyboard walks,
  * the user's own email inside their password.
  *
- * So the client fails OPEN. A timeout, a connection error, a 5xx, or an unset
- * `GUARDSVC_URL` all return `null` and registration proceeds. A password scorer
- * being down must never be able to stop people from signing up.
+ * So the client fails OPEN. A timeout, a connection error, any non-2xx, a body
+ * that is not a well-formed verdict, or an unset `GUARDSVC_URL` all return
+ * `null` and registration proceeds. A password scorer being down — or answering
+ * nonsense — must never be able to stop people from signing up.
  *
  * Privacy: the password is sent over the wire to guardsvc and nowhere else. It
  * is never logged here, not on the success path and not in an error handler —
@@ -76,9 +97,14 @@ export class PasswordStrengthService {
         return null;
       }
 
-      const verdict = (await response.json()) as StrengthVerdict;
+      const body: unknown = await response.json();
+      if (!isStrengthVerdict(body)) {
+        this.recordFailure('guardsvc returned a body that is not a verdict');
+        return null;
+      }
+
       this.failures = 0;
-      return verdict;
+      return body;
     } catch (error) {
       // Only the error's own message is logged. The request body is never
       // touched here, because it holds the password.
