@@ -49,9 +49,9 @@ services:
       CSRF_COOKIE_NAME: ${CSRF_COOKIE_NAME}
       THROTTLE_TTL_SECONDS: ${THROTTLE_TTL_SECONDS}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT}
-      # Password-strength scoring. The API calls this at registration with a
-      # short timeout and fails open, so leaving the `guardsvc` profile off
-      # simply means registrations are checked by the DTO rules alone.
+      # Optional password-strength scorer (see the README). It is an external
+      # HTTP service, not part of this stack; leave the URL empty and
+      # registrations are checked by the DTO rules alone.
       GUARDSVC_URL: ${GUARDSVC_URL:-}
       GUARDSVC_TIMEOUT_MS: ${GUARDSVC_TIMEOUT_MS:-400}
     expose:
@@ -65,25 +65,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-    networks:
-      - sv-net
-
-  # Optional dependency, started only with `docker compose --profile guardsvc up`.
-  # It is a separate repository (github.com/…/guardsvc) expected to be checked
-  # out next to this one; without it the API still registers users, it just does
-  # not get the extra strength feedback. Set GUARDSVC_URL=http://guardsvc:8080
-  # in .env to switch the check on.
-  guardsvc:
-    profiles: ['guardsvc']
-    build:
-      context: ../guardsvc
-    container_name: sv-guardsvc
-    restart: unless-stopped
-    environment:
-      GUARDSVC_ADDR: ':8080'
-      GUARDSVC_MIN_SCORE: '2'
-    expose:
-      - '8080'
     networks:
       - sv-net
 
