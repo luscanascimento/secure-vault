@@ -24,7 +24,7 @@ and strict TypeScript.
 
 ```
 src/app/
-  core/            # services (auth, notes, theme), guard, interceptor, models
+  core/            # services (auth, notes, theme), guard, interceptor, http errors
   features/
     auth/          # login + register (reactive forms)
     vault/         # dashboard, note cards, slide-over editor

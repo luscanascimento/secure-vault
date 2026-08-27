@@ -42,13 +42,9 @@ control to real, readable, layered code — and documents where each one lives.
   (controller → service → repository → Prisma) and a signals-based, zoneless
   Angular SPA. Strict TypeScript throughout, **zero `any`**.
 
----
-
-## Screenshots
-
-No screenshots are committed to this repository. The UI — vault grid, slide-over
-note editor and split-panel auth screen — is reproducible in one command: run
-`docker compose up -d --build` and open http://localhost:4200.
+> **Status:** a portfolio showcase, written in a single focused sprint. There is
+> no hosted demo — the whole stack comes up with one `docker compose up -d --build`
+> ([instructions](#run-with-docker-recommended)), seed included.
 
 ---
 
@@ -190,7 +186,7 @@ Each control is mapped to exactly where it is implemented.
 | 15 | **Config validation** | Joi schema validates every env var at boot (fail-fast); strong-secret length checks | `apps/api/src/config/env.validation.ts` |
 | 16 | **User-enumeration / timing defense** | Login returns a generic error and always runs a verify (dummy hash when the user is absent) | `apps/api/src/auth/auth.service.ts` |
 | 17 | **Structured logging** | Winston (JSON in prod), no secrets logged | `apps/api/src/common/logger/winston.config.ts` |
-| 18 | **HTTPS / TLS** | `Secure` cookies + HSTS enabled via `COOKIE_SECURE=true` behind a TLS-terminating proxy (deployment note below) | deployment |
+| 18 | **HTTPS / TLS** | HSTS (1 year, `includeSubDomains`, `preload`) is always sent by Helmet; the cookies' `Secure` flag is gated on `COOKIE_SECURE=true`, and `trust proxy` is on so both work behind a TLS-terminating proxy. TLS itself is the deployment's job — nothing here terminates it | `apps/api/src/main.ts`, `cookie.service.ts` |
 
 ---
 
@@ -236,38 +232,49 @@ at startup.
 | `CSRF_COOKIE_NAME` | CSRF cookie name | `sv_csrf` |
 | `THROTTLE_TTL_SECONDS` | Global rate-limit window | `60` |
 | `THROTTLE_LIMIT` | Global requests per window | `100` |
-| `GUARDSVC_URL` | Password-strength scorer, empty = off | `http://guardsvc:8080` |
+| `GUARDSVC_URL` | External password-strength scorer, empty = off (not shipped here) | *(unset)* |
 | `GUARDSVC_TIMEOUT_MS` | Budget for that call | `400` |
 
 ---
 
-## Password strength (optional, fails open)
+## Password strength (optional, external, fails open)
 
 Registration enforces its own rules — 12 characters minimum plus mixed
 character classes, validated in `RegisterDto`. Those are the rules that always
-hold.
+hold, and they are the only ones this repository ships.
 
-On top of that, if `GUARDSVC_URL` is set, `AuthService.register` asks
-[guardsvc](../guardsvc) whether the password is one an attacker would guess
-early: a breach-wordlist entry, a keyboard walk, or the user's own email address
-rearranged. A rejection comes back as a 400 carrying guardsvc's warning as
-`message` and its advice as a `suggestions` array; `AllExceptionsFilter` forwards
-that array (and only that array, only when every element is a string), and the
-register screen renders it under the error alert.
+`GUARDSVC_URL` optionally points the API at an external scorer, for the checks a
+regex cannot do: breach-wordlist entries, keyboard walks, the user's own email
+rearranged. **That scorer is not part of this repository** — what lives here is
+the client (`auth/password-strength.service.ts`), and it is off by default
+(`GUARDSVC_URL` empty). The contract is a single endpoint:
 
-The call is deliberately not load-bearing:
+```http
+POST /score
+{ "password": "…", "userInputs": ["user@example.dev"] }
+
+200 OK
+{ "score": 1, "acceptable": false, "warning": "…", "suggestions": ["…", "…"] }
+```
+
+`acceptable: false` becomes a 400 carrying `warning` as `message` and
+`suggestions` as an array; `AllExceptionsFilter` forwards that array (and only
+that array, only when every element is a string), and the register screen
+renders it under the error alert.
+
+The call is not load-bearing:
 
 - 400 ms timeout (`AbortSignal.timeout`), then the answer is discarded.
 - After three consecutive failures the client stops calling for 30 seconds, so a
   dead scorer costs one timeout per window instead of one per signup.
-- Any timeout, connection error, 5xx or unset URL is treated as "no objection".
-  **guardsvc being down can never block a registration.**
-- The password is sent to guardsvc and nowhere else. It is never written to this
-  API's logs, including in the error handler.
+- A timeout, a connection error, any non-2xx, an unset URL — **and a 200 whose
+  body is not a well-formed verdict** — are all treated as "no objection". The
+  body's shape is checked at runtime, precisely so that a scorer answering
+  nonsense cannot turn "fail open" into a blocked signup.
+- The password is sent to the scorer and nowhere else. It is never written to
+  this API's logs, including in the error handler.
 
-guardsvc is a separate repository. `docker compose --profile guardsvc up`
-starts it from a sibling checkout; without the profile the API runs exactly as
-before, on the DTO rules alone.
+All of the above is pinned by `auth/password-strength.service.spec.ts`.
 
 ---
 
@@ -319,14 +326,21 @@ npm test          # turbo: the API's Jest suites
 
 The suites target the security claims above, not coverage percentage. They are
 pure unit tests — no database, no HTTP server, no Docker — so `npm test` runs
-offline in seconds. Prisma and `ConfigService` are stubbed; argon2, `node:crypto`
-and `@nestjs/jwt` run for real.
+offline in seconds. Prisma, `fetch` and `ConfigService` are stubbed; argon2,
+`node:crypto` and `@nestjs/jwt` run for real.
+
+Two honest limits: **all tests live in `apps/api`** (the Angular app has no
+runner wired up yet, so `apps/web` has zero specs), and because Prisma is a mock,
+the token tests prove the API *issues* the right conditional `UPDATE`, not that
+PostgreSQL serialises two concurrent rotations. An end-to-end suite against a
+real database is the next thing this repo needs.
 
 | Suite | What it pins down |
 | --- | --- |
 | `crypto/encryption.service.spec.ts` | encrypt→decrypt round-trip (incl. empty, unicode, 50 kB bodies); a fresh 12-byte IV per call and no IV collisions over 500 encryptions; decryption **throws** when the auth tag, ciphertext or IV is flipped, when a tag from another record is spliced in, or under a different key; a key that does not decode to 32 bytes is refused at construction (boot) |
 | `crypto/password.service.spec.ts` | hashes are `$argon2id$` with `m=19456,t=2,p=1`; correct password verifies, wrong/empty/case-shifted ones do not; the same password hashes differently twice (auto-salt); a hash does **not** verify under a different pepper; a malformed stored hash returns `false` instead of throwing |
 | `auth/token.service.spec.ts` | only a SHA-256 hash of the refresh token is persisted; rotation revokes the presented row and mints a new pair; replaying an **already-revoked** token triggers `revokeAllForUser` (tokenVersion `+1` and mass-revoke, in one `$transaction`) and issues nothing; forged signature, unknown row, expired row and stale `tokenVersion` are all rejected — and only the reuse case nukes the family |
+| `auth/password-strength.service.spec.ts` | the client fails open on every bad answer — 5xx, transport error, unset URL, and a 200 whose body is not a well-formed verdict; a well-formed verdict is passed through; the breaker opens after three consecutive failures and resets on the first good answer |
 | `common/guards/csrf.guard.spec.ts` | `GET`/`HEAD`/`OPTIONS` pass with no token at all; `POST`/`PATCH`/`PUT`/`DELETE` pass only when header equals cookie; missing header, missing cookie, unparsed cookies, a one-character difference, a length mismatch and a token under the wrong cookie name are each rejected |
 | `common/filters/all-exceptions.filter.spec.ts` | each exception is labelled with its own class (`BadRequest`, `NotFound`, …); `suggestions` reaches the client, but only as a plain string array; validation-pipe message arrays are joined; a raw `Error` never leaks its text or stack |
 
