@@ -35,9 +35,16 @@ function isAuthEndpoint(url: string): boolean {
   );
 }
 
+/**
+ * Outcome of the single in-flight refresh. The failure case has to travel too:
+ * queued requests wait on this subject, so if only the token were published a
+ * failed refresh would leave them pending forever.
+ */
+type RefreshOutcome = { token: string } | { error: unknown };
+
 // Shared refresh state so concurrent 401s wait on a single refresh call.
 let isRefreshing = false;
-const refreshComplete$ = new BehaviorSubject<string | null>(null);
+const refreshComplete$ = new BehaviorSubject<RefreshOutcome | null>(null);
 
 /**
  * Functional HTTP interceptor:
@@ -90,11 +97,16 @@ function handle401(
   auth: AuthService,
 ): Observable<HttpEvent<unknown>> {
   if (isRefreshing) {
-    // Queue behind the in-flight refresh, then replay with the new token.
+    // Queue behind the in-flight refresh, then replay with the new token — or
+    // surface the refresh error if it failed.
     return refreshComplete$.pipe(
-      filter((token): token is string => token !== null),
+      filter((outcome): outcome is RefreshOutcome => outcome !== null),
       take(1),
-      switchMap((token) => next(decorate(req, token))),
+      switchMap((outcome) =>
+        'token' in outcome
+          ? next(decorate(req, outcome.token))
+          : throwError(() => outcome.error),
+      ),
     );
   }
 
@@ -103,10 +115,16 @@ function handle401(
 
   return auth.refresh().pipe(
     switchMap((res) => {
-      refreshComplete$.next(res.accessToken);
+      refreshComplete$.next({ token: res.accessToken });
       return next(decorate(req, res.accessToken));
     }),
     catchError((err: unknown) => {
+      // `null` still in the subject means the refresh itself failed and nothing
+      // was published for this round; anything else means the token already
+      // went out and this error came from the replayed request.
+      if (refreshComplete$.value === null) {
+        refreshComplete$.next({ error: err });
+      }
       auth.clearSession();
       return throwError(() => err);
     }),
